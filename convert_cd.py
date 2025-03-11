@@ -14,7 +14,7 @@ def main():
     )
     parser.add_argument(
         'output_file',
-        help='Output WAV file (172.4kHz/16bit stereo)'
+        help='Output WAV file (172.4kHz/24bit stereo)'
     )
     parser.add_argument(
         '--method',
