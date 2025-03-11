@@ -4,8 +4,9 @@ from typing import Literal
 
 class AudioInterpolator:
     def __init__(self, method: Literal['cubic', 'akima', 'pchip', 'repeat'] = 'cubic'):
-        # Store last 9 output samples (172.4kHz)
+        # Store last 9 output samples (176.4kHz)
         self.previous_samples = np.zeros((9, 2), dtype=np.float64)  # 9 samples, 2 channels
+        self.chunk_end_sample = np.zeros((1, 2), dtype=np.float64)  # last sample from previos chunk
         self.channels = 2
         self.method = method
 
@@ -19,7 +20,7 @@ class AudioInterpolator:
         Uses various interpolation methods.
 
         Each chunk must be interpolated sequentially:
-        - Uses points 1-9 from previous output samples (172.4kHz)
+        - Uses points 1-9 from previous output samples (176.4kHz)
         - Points 13,17 from input stream (44.1kHz)
         - Generates points 10,11,12 through interpolation
         - Outputs points 10,11,12,13 to the stream
@@ -28,7 +29,7 @@ class AudioInterpolator:
             return np.array([], dtype=np.float64)
 
         # Reshape input to separate channels
-        input_samples = input_chunk.reshape(-1, self.channels)
+        input_samples = np.concatenate([self.chunk_end_sample, input_chunk.reshape(-1, self.channels)])
 
         # Calculate output size: for each input sample (except the last one)
         # we generate 4 output samples (3 interpolated + 1 original)
@@ -92,5 +93,7 @@ class AudioInterpolator:
                         output[output_idx-4:output_idx-1, channel],  # Points 10,11,12
                         [input_samples[i, channel]]                  # Point 13
                     ])
+
+            self.chunk_end_sample[0, channel] = input_samples[len(input_samples)-1, channel]
 
         return output.flatten()

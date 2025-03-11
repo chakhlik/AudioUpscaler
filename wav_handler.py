@@ -34,18 +34,21 @@ class WavHandler:
             return np.array([], dtype=np.float64)
 
         # Convert to float64 without scaling, preserving raw integer values
-        return np.frombuffer(frames, dtype=np.int16).astype(np.float64)
+        return np.frombuffer(frames, dtype=np.int16).astype(np.float64)*256
 
     def write_wav_chunk(self, wav_file: wave.Wave_write, chunk: np.ndarray):
         """Write a chunk of frames to the WAV file."""
         # Convert float64 to 24-bit range directly
-        clipped = np.clip(chunk, -8388608, 8388607)
+        clipped = np.clip(chunk, -8388608, 8388607).astype(np.int32)
 
         # Convert to integer format
-        int_data = clipped.astype(np.int32)
+        bytes_view = clipped[:, None].view(np.uint8)  # (N, 4) - 4 байта на число
 
         # Convert to bytes, keeping only the 3 most significant bytes (24-bit)
-        bytes_data = int_data.astype('>i4').tobytes()[1:]
+        #bytes_data = int_data.astype('>i4').to_bytes()[1:]
+        #bytes_data = clipped[:, None].view(np.uint8)[:, 0:3]
+        bytes_data = bytes_view[:, 0:3].tobytes()
+
         wav_file.writeframes(bytes_data)
 
     def setup_output_wav(self, input_filename: str, output_filename: str) -> Tuple[wave.Wave_read, wave.Wave_write]:
@@ -56,7 +59,7 @@ class WavHandler:
         # Configure output WAV file
         output_wav.setnchannels(self.channels)
         output_wav.setsampwidth(self.sampwidth)  # 24-bit
-        output_wav.setframerate(input_wav.getframerate()*4)  # 172.4kHz
+        output_wav.setframerate(input_wav.getframerate()*4)  # 176.4kHz
 
         return input_wav, output_wav
 

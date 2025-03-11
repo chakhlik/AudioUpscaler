@@ -50,10 +50,10 @@ class AudioUpscaler:
             input_wav.close()
             output_wav.close()
 
-            # Verify output file is 24-bit/172.4kHz
+            # Verify output file is 24-bit/176.4kHz
             valid, verify_message = self.wav_handler.validate_wav_file(
                 output_filename, 
-                expected_rate=172400,
+                expected_rate=176400,
                 expected_width=3  # Verify 24-bit output
             )
             if not valid:
@@ -82,8 +82,8 @@ class AudioUpscaler:
         bar = f"[{bar:<50}]"
 
         # Format elapsed and remaining time
-        elapsed_str = time.strftime("%M:%S", time.gmtime(elapsed))
-        remaining_str = time.strftime("%M:%S", time.gmtime(remaining))
+        elapsed_str = time.strftime("%H:%M:%S", time.gmtime(elapsed))
+        remaining_str = time.strftime("%H:%M:%S", time.gmtime(remaining))
 
         # Print progress
         sys.stdout.write(f'\rProgress: {bar} {progress:.1f}% | Time: {elapsed_str} | ETA: {remaining_str}')
