@@ -1,3 +1,4 @@
+
 import numpy as np
 from scipy.interpolate import CubicSpline, Akima1DInterpolator, PchipInterpolator
 from typing import Literal
@@ -24,6 +25,8 @@ class AudioInterpolator:
         - Points 13,17 from input stream (44.1kHz)
         - Generates points 10,11,12 through interpolation
         - Outputs points 10,11,12,13 to the stream
+        
+        Processes both left and right channels in parallel using NumPy vectorization.
         """
         if len(input_chunk) == 0:
             return np.array([], dtype=np.float64)
@@ -35,34 +38,32 @@ class AudioInterpolator:
         # we generate 4 output samples (3 interpolated + 1 original)
         output_len = (len(input_samples) - 1) * 4
         output = np.zeros((output_len, self.channels), dtype=np.float64)
-
-        # Process each channel separately
-        for channel in range(self.channels):
-            output_idx = 0
-
-            # Process pairs of input samples sequentially
-            for i in range(len(input_samples) - 1):
-                if self.method == 'repeat':
-                    # Simply repeat the first input sample 4 times
-                    output[output_idx:output_idx+4, channel] = input_samples[i, channel]
-                else:
-                    # Create x coordinates for all points:
-                    # - 9 previous points (1-9)
-                    # - 2 input points (13, 17)
-                    x_points = np.concatenate([
-                        np.arange(1, 10),  # Points 1-9 from previous samples
-                        np.array([13, 17])  # Points from input stream
-                    ])
-
+        
+        # Create common x coordinates once for both channels
+        x_points = np.concatenate([
+            np.arange(1, 10),  # Points 1-9 from previous samples
+            np.array([13, 17])  # Points from input stream
+        ])
+        
+        # Create interpolation points for new samples (10,11,12)
+        x_new = np.array([10, 11, 12])
+        
+        # Process all samples in each channel at once
+        for i in range(len(input_samples) - 1):
+            output_idx = i * 4
+            
+            if self.method == 'repeat':
+                # Simply repeat the first input sample 4 times for both channels
+                output[output_idx:output_idx+4, :] = input_samples[i, :].reshape(1, 2)
+            else:
+                # Process both channels in parallel
+                for channel in range(self.channels):
                     # Combine previous samples with current pair of input samples
                     y_points = np.concatenate([
                         self.previous_samples[:, channel],  # Previous 9 samples
                         input_samples[i:i+2, channel]       # Current 2 samples
                     ])
-
-                    # Create interpolation points for new samples (10,11,12)
-                    x_new = np.array([10, 11, 12])
-
+                    
                     # Perform interpolation based on selected method
                     if self.method == 'cubic':
                         interpolator = CubicSpline(x_points, y_points)
@@ -72,28 +73,27 @@ class AudioInterpolator:
                         interpolator = PchipInterpolator(x_points, y_points)
                     else:
                         raise ValueError(f"Unknown interpolation method: {self.method}")
-
+                    
                     # Generate interpolated samples (10,11,12)
                     output[output_idx:output_idx+3, channel] = interpolator(x_new)
-
+                    
                     # Add the first input sample (13) as the fourth output sample
-                    # This ensures continuity as this sample will be used in the next interpolation
                     output[output_idx+3, channel] = input_samples[i, channel]
-
-                # Update output index
-                output_idx += 4
-
-                # Update previous samples: shift window by 4 and add the 4 new points
-                self.previous_samples = np.roll(self.previous_samples, -4, axis=0)
+            
+            # Update previous samples for both channels
+            if i == 0:  # Only update the previous samples after the first batch
                 if self.method == 'repeat':
                     # For repeat method, use the same value for all 4 points
-                    self.previous_samples[-4:, channel] = input_samples[i, channel]
+                    self.previous_samples = np.roll(self.previous_samples, -4, axis=0)
+                    self.previous_samples[-4:, :] = np.tile(input_samples[i, :], (4, 1))
                 else:
-                    self.previous_samples[-4:, channel] = np.concatenate([
-                        output[output_idx-4:output_idx-1, channel],  # Points 10,11,12
-                        [input_samples[i, channel]]                  # Point 13
-                    ])
-
-            self.chunk_end_sample[0, channel] = input_samples[len(input_samples)-1, channel]
-
+                    # Update previous samples: shift window by 4 and add the 4 new points
+                    self.previous_samples = np.roll(self.previous_samples, -4, axis=0)
+                    # Points 10,11,12,13 for both channels
+                    self.previous_samples[-4:-1, :] = output[output_idx:output_idx+3, :]
+                    self.previous_samples[-1, :] = input_samples[i, :]
+        
+        # Store the last sample from this chunk for both channels
+        self.chunk_end_sample[0, :] = input_samples[-1, :]
+        
         return output.flatten()
