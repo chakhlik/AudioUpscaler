@@ -79,19 +79,19 @@ class AudioInterpolator:
                     
                     # Add the first input sample (13) as the fourth output sample
                     output[output_idx+3, channel] = input_samples[i, channel]
-            
+
             # Update previous samples for both channels
-            if i == 0:  # Only update the previous samples after the first batch
-                if self.method == 'repeat':
-                    # For repeat method, use the same value for all 4 points
-                    self.previous_samples = np.roll(self.previous_samples, -4, axis=0)
-                    self.previous_samples[-4:, :] = np.tile(input_samples[i, :], (4, 1))
-                else:
-                    # Update previous samples: shift window by 4 and add the 4 new points
-                    self.previous_samples = np.roll(self.previous_samples, -4, axis=0)
-                    # Points 10,11,12,13 for both channels
-                    self.previous_samples[-4:-1, :] = output[output_idx:output_idx+3, :]
-                    self.previous_samples[-1, :] = input_samples[i, :]
+
+            if self.method == 'repeat':
+                # For repeat method, use the same value for all 4 points
+                self.previous_samples = np.roll(self.previous_samples, -4, axis=0)
+                self.previous_samples[-4:, :] = np.tile(input_samples[i, :], (4, 1))
+            else:
+                # Update previous samples: shift window by 4 and add the 4 new points
+                self.previous_samples = np.roll(self.previous_samples, -4, axis=0)
+                # Points 10,11,12,13 for both channels
+                self.previous_samples[-4:-1, :] = output[output_idx:output_idx+3, :]
+                self.previous_samples[-1, :] = input_samples[i, :]
         
         # Store the last sample from this chunk for both channels
         self.chunk_end_sample[0, :] = input_samples[-1, :]

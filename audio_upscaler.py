@@ -9,7 +9,7 @@ class AudioUpscaler:
     def __init__(self, interpolation_method: Literal['cubic', 'akima', 'pchip', 'repeat'] = 'cubic'):
         self.wav_handler = WavHandler()
         self.interpolator = AudioInterpolator(method=interpolation_method)
-        self.chunk_size = 1024  # Process 1024 frames at a time
+        self.chunk_size = 11760 # Process 1024 frames at a time
         self.start_time = None
 
     def process_file(self, input_filename: str, output_filename: str) -> Tuple[bool, str]:
