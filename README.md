@@ -1,2 +1,2 @@
 # AudioUpscaler
-Oversampling of CD tracks with stict interpolation mecanism
+Oversampling of CD tracks with strict interpolation mecanism
